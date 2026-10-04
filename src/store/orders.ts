@@ -58,17 +58,17 @@ export const useOrdersStore = create<OrdersStore>()(
     {
       // ── Bumping the key name immediately invalidates every
       //    browser cache that stored the old "bookworm-orders" key.
-      name: "bookworm-orders-v2",
+      name: "bookworm-orders-v3",
       storage: createJSONStorage(() => localStorage),
 
       // ── Schema version – increment whenever the persisted shape
       //    changes so migrate() can transform or wipe old data.
-      version: 2,
+      version: 3,
 
       migrate: (persistedState: unknown, version: number) => {
-        // Any cache written before v2 (or with no version at all)
+        // Any cache written before v3 (or with no version at all)
         // is considered stale – replace it with a clean seed.
-        if (!persistedState || version < 2) {
+        if (!persistedState || version < 3) {
           return { orders: freshSeed() };
         }
         return persistedState as OrdersStore;

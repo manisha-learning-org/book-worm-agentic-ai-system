@@ -578,30 +578,6 @@ export const mockCoupons: Coupon[] = [
 // ── Sample Orders ──────────────────────────────────────────────
 export const mockOrders: Order[] = [
   {
-    id: "order-101",
-    userId: "user-001",
-    items: [
-      {
-        bookId: "atomic-habits",
-        quantity: 1,
-        selectedFormat: "Paperback",
-        priceAtAdd: 499,
-        title: "Atomic Habits",
-        coverImage: "https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg",
-      },
-    ],
-    address: sampleAddress,
-    subtotal: 499,
-    tax: 25,
-    discount: 50,
-    deliveryCharge: 0,
-    totalAmount: 474,
-    status: "CONFIRMED",
-    paymentMethod: "UPI",
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    canCancelUntil: new Date(Date.now() - 3 * 60 * 60 * 1000 + 48 * 60 * 60 * 1000),
-  },
-  {
     id: "order-001",
     userId: "user-001",
     items: [

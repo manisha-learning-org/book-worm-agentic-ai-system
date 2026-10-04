@@ -23,8 +23,9 @@ import { useOrdersStore } from "@/store/orders";
 import { bookById, validateCoupon } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import type { BookFormat, PaymentMethod, Order, Address } from "@/lib/types";
+import type { BookFormat, Order, Address } from "@/lib/types";
 import PaymentModal from "./PaymentModal";
+import { PurchaseSuccessModal } from "../../../components/PurchaseSuccessModal";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const INDIAN_STATES = [
@@ -147,6 +148,20 @@ export default function CheckoutClient() {
 
   // ── Payment modal ─────────────────────────────────────────────
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  // ── Purchase success modal ────────────────────────────────────
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [purchasedItems, setPurchasedItems] = useState<
+    Array<{
+      id: string;
+      title: string;
+      author: string;
+      price: number;
+      format: string;
+      category?: string;
+      coverImage: string;
+    }>
+  >([]);
 
   // ── Order summary calculations ───────────────────────────────
   const subtotal = useMemo(
@@ -326,7 +341,7 @@ export default function CheckoutClient() {
   };
 
   // ── Called by PaymentModal on success ─────────────────────────
-  const handlePaymentSuccess = (method: PaymentMethod) => {
+  const handlePaymentSuccess = (method: string) => {
     const now = new Date();
     const cancelUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
@@ -363,7 +378,7 @@ export default function CheckoutClient() {
       deliveryCharge: delivery,
       totalAmount: total,
       status: "CONFIRMED",
-      paymentMethod: method,
+      paymentMethod: method as import("@/lib/types").PaymentMethod,
       createdAt: now,
       canCancelUntil: cancelUntil,
     };
@@ -375,9 +390,24 @@ export default function CheckoutClient() {
       updateGiftPoints(-giftDiscount);
     }
 
+    // Snapshot purchased items for the success modal before clearing the cart
+    const snapshot = items.map((item) => {
+      const book = bookById(item.bookId);
+      return {
+        id: `${item.bookId}-${item.selectedFormat}`,
+        title: book?.title ?? "Unknown Book",
+        author: book?.author ?? "",
+        price: item.priceAtAdd,
+        format: item.selectedFormat,
+        category: book?.category,
+        coverImage: book?.coverImage ?? "",
+      };
+    });
+
     clearCart();
     setShowPaymentModal(false);
-    router.push(`/order-confirmation/${orderId}`);
+    setPurchasedItems(snapshot);
+    setShowSuccessModal(true);
   };
 
   // ── Quantity controls ─────────────────────────────────────────
@@ -775,14 +805,18 @@ export default function CheckoutClient() {
       )}
 
       {/* ── Payment modal ── */}
-      {showPaymentModal && (
-        <PaymentModal
-          total={total}
-          giftPointsApplied={giftDiscount}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={handlePaymentSuccess}
-        />
-      )}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        totalAmount={total}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* ── Purchase success modal ── */}
+      <PurchaseSuccessModal
+        isOpen={showSuccessModal}
+        items={purchasedItems}
+      />
     </main>
   );
 }

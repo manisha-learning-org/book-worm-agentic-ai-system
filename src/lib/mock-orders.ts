@@ -29,33 +29,6 @@ export interface Order {
 
 export const INITIAL_ORDERS: Order[] = [
   {
-    id: "order-101",
-    items: [
-      {
-        bookId: "atomic-habits",
-        title: "Atomic Habits",
-        author: "James Clear",
-        format: "Paperback",
-        price: 499,
-        quantity: 1,
-        coverImage: "https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg",
-      },
-    ],
-    subtotal: 499,
-    tax: 25,
-    deliveryCharge: 0,
-    discount: 50,
-    totalAmount: 474,
-    status: "CONFIRMED",
-    paymentMethod: "UPI",
-    deliveryAddress: {
-      city: "Bengaluru",
-      state: "Karnataka",
-    },
-    // Created 3 hours ago so 48h cancellation is active
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-  {
     id: "order-001",
     items: [
       {
