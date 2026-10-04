@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useOrdersStore } from "@/store/orders";
 import { formatPrice } from "@/lib/utils";
+import { bookById } from "@/lib/mock-data";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -166,30 +167,41 @@ export default function OrderConfirmationClient() {
           </h2>
         </div>
         <ul className="divide-y divide-zinc-800">
-          {order.items.map((item, idx) => (
-            <li key={idx} className="flex items-center gap-3 px-5 py-4">
-              <div className="w-12 shrink-0">
-                <BookCover
-                  src={item.coverImage}
-                  title={item.title}
-                  author=""
-                  className="w-full h-full object-cover"
-                  aspectRatio="aspect-[3/4]"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-zinc-100 line-clamp-1">
-                  {item.title}
+          {order.items.map((item, idx) => {
+            const book = bookById(item.bookId);
+            const coverImage = item.coverImage || book?.coverImage || "";
+            const author = book?.author ?? "";
+
+            return (
+              <li key={idx} className="flex items-center gap-3 px-5 py-4">
+                <div className="w-12 shrink-0">
+                  <BookCover
+                    src={coverImage}
+                    title={item.title}
+                    author={author}
+                    className="w-full h-full object-cover"
+                    aspectRatio="aspect-[3/4]"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-100 line-clamp-1">
+                    {item.title}
+                  </p>
+                  {author && (
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      by {author}
+                    </p>
+                  )}
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    {item.selectedFormat} · Qty {item.quantity}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-zinc-100 shrink-0">
+                  {formatPrice(item.priceAtAdd * item.quantity)}
                 </p>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {item.selectedFormat} · Qty {item.quantity}
-                </p>
-              </div>
-              <p className="text-sm font-semibold text-zinc-100 shrink-0">
-                {formatPrice(item.priceAtAdd * item.quantity)}
-              </p>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
 

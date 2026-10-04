@@ -575,11 +575,10 @@ export const mockCoupons: Coupon[] = [
   },
 ];
 
-// ── Sample Order ───────────────────────────────────────────────
-const orderDate = new Date("2024-09-20T10:00:00Z");
+// ── Sample Orders ──────────────────────────────────────────────
 export const mockOrders: Order[] = [
   {
-    id: "order-001",
+    id: "order-101",
     userId: "user-001",
     items: [
       {
@@ -590,25 +589,49 @@ export const mockOrders: Order[] = [
         title: "Atomic Habits",
         coverImage: "https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg",
       },
+    ],
+    address: sampleAddress,
+    subtotal: 499,
+    tax: 25,
+    discount: 50,
+    deliveryCharge: 0,
+    totalAmount: 474,
+    status: "CONFIRMED",
+    paymentMethod: "UPI",
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+    canCancelUntil: new Date(Date.now() - 3 * 60 * 60 * 1000 + 48 * 60 * 60 * 1000),
+  },
+  {
+    id: "order-001",
+    userId: "user-001",
+    items: [
       {
-        bookId: "deep-work",
+        bookId: "psychology-of-money",
         quantity: 1,
         selectedFormat: "Paperback",
-        priceAtAdd: 399,
-        title: "Deep Work",
-        coverImage: "https://covers.openlibrary.org/b/isbn/9781455586691-L.jpg",
+        priceAtAdd: 349,
+        title: "The Psychology of Money",
+        coverImage: "https://covers.openlibrary.org/b/isbn/9780857197689-L.jpg",
+      },
+      {
+        bookId: "silent-patient",
+        quantity: 1,
+        selectedFormat: "Paperback",
+        priceAtAdd: 329,
+        title: "The Silent Patient",
+        coverImage: "https://covers.openlibrary.org/b/isbn/9781409181637-L.jpg",
       },
     ],
     address: sampleAddress,
-    subtotal: 898,
-    tax: 45,
-    discount: 50,
+    subtotal: 678,
+    tax: 34,
+    discount: 0,
     deliveryCharge: 0,
-    totalAmount: 893,
+    totalAmount: 712,
     status: "DELIVERED",
     paymentMethod: "UPI",
-    createdAt: orderDate,
-    canCancelUntil: addHours(orderDate, 48),
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    canCancelUntil: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000 + 48 * 60 * 60 * 1000),
   },
 ];
 
