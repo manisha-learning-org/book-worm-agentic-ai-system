@@ -4,12 +4,11 @@
 //  My Orders Dashboard
 //  – 48-hour cancellation with live countdown
 //  – Cancel confirmation modal + gift-points refund
-//  – "Buy It Again" per order item
+//  – "Buy It Again" per order item with toast feedback
 // ─────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BookCover } from "@/components/BookCover";
 import {
   Package,
@@ -24,6 +23,7 @@ import {
   X,
   MapPin,
   CreditCard,
+  Calendar,
 } from "lucide-react";
 import { useOrdersStore } from "@/store/orders";
 import { useUserStore } from "@/store/user";
@@ -31,6 +31,7 @@ import { useCartStore } from "@/store/cart";
 import { bookById } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { Toast } from "@/components/book-detail/Toast";
 import type { Order, OrderItem } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -63,17 +64,17 @@ const STATUS_META: Record<
 > = {
   CONFIRMED: {
     label: "Confirmed",
-    color: "text-blue-400 bg-blue-400/10 border-blue-400/30",
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+    color: "text-sky-400 bg-sky-950/70 border-sky-800/60",
+    icon: <Clock className="w-3.5 h-3.5" />,
   },
   DELIVERED: {
     label: "Delivered",
-    color: "text-green-400 bg-green-400/10 border-green-400/30",
+    color: "text-emerald-400 bg-emerald-950/70 border-emerald-800/60",
     icon: <Truck className="w-3.5 h-3.5" />,
   },
   CANCELLED: {
     label: "Cancelled",
-    color: "text-red-400 bg-red-400/10 border-red-400/30",
+    color: "text-rose-400 bg-rose-950/70 border-rose-800/60",
     icon: <XCircle className="w-3.5 h-3.5" />,
   },
 };
@@ -104,7 +105,7 @@ function CancelModal({
     >
       <div className="bg-[#1E1E1E] border border-zinc-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <div className="flex items-start gap-3 mb-4">
-          <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
           <div>
             <h3 className="font-semibold text-zinc-100 mb-1">Cancel this order?</h3>
             <p className="text-sm text-zinc-400">
@@ -116,7 +117,7 @@ function CancelModal({
               will be cancelled. This action cannot be undone.
             </p>
             {giftPointsToRefund > 0 && (
-              <p className="text-sm text-green-400 mt-2">
+              <p className="text-sm text-emerald-400 mt-2">
                 ✓ {giftPointsToRefund} gift point
                 {giftPointsToRefund !== 1 ? "s" : ""} will be refunded to your
                 balance.
@@ -133,7 +134,7 @@ function CancelModal({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 transition-colors"
           >
             Yes, cancel
           </button>
@@ -145,7 +146,6 @@ function CancelModal({
 
 // ── CancellationCountdown ─────────────────────────────────────────────────────
 
-/** Live-updating countdown showing remaining cancellation window */
 function CancellationCountdown({
   canCancelUntil,
   onCancel,
@@ -161,7 +161,7 @@ function CancellationCountdown({
       const ms = msUntil(canCancelUntil);
       setRemaining(ms);
       if (ms <= 0) clearInterval(id);
-    }, 30_000); // update every 30 s (sufficient granularity for hours)
+    }, 30_000);
     return () => clearInterval(id);
   }, [canCancelUntil, remaining]);
 
@@ -177,7 +177,7 @@ function CancellationCountdown({
   return (
     <button
       onClick={onCancel}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-colors"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/60 text-rose-400 border border-rose-700/60 hover:bg-rose-950/80 transition-colors"
     >
       <X className="w-3 h-3" />
       Cancel Order
@@ -190,9 +190,13 @@ function CancellationCountdown({
 
 // ── BuyAgainButton ────────────────────────────────────────────────────────────
 
-function BuyAgainButton({ item }: { item: OrderItem }) {
+interface BuyAgainButtonProps {
+  item: OrderItem;
+  onAdded: (title: string) => void;
+}
+
+function BuyAgainButton({ item, onAdded }: BuyAgainButtonProps) {
   const { addItem } = useCartStore();
-  const router = useRouter();
   const [added, setAdded] = useState(false);
 
   const handleBuyAgain = () => {
@@ -204,9 +208,9 @@ function BuyAgainButton({ item }: { item: OrderItem }) {
       priceAtAdd: book?.price ?? item.priceAtAdd,
     });
     setAdded(true);
-    setTimeout(() => {
-      router.push("/checkout");
-    }, 500);
+    onAdded(item.title);
+    // Reset after 3 s so the button can be clicked again
+    setTimeout(() => setAdded(false), 3000);
   };
 
   return (
@@ -214,10 +218,10 @@ function BuyAgainButton({ item }: { item: OrderItem }) {
       onClick={handleBuyAgain}
       disabled={added}
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border transition-colors",
         added
-          ? "bg-green-500/15 text-green-400 border border-green-500/30 cursor-default"
-          : "bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 hover:bg-yellow-400/20"
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 cursor-default"
+          : "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
       )}
     >
       {added ? (
@@ -227,7 +231,7 @@ function BuyAgainButton({ item }: { item: OrderItem }) {
         </>
       ) : (
         <>
-          <ShoppingCart className="w-3.5 h-3.5" />
+          <ShoppingCart className="w-3 h-3" />
           Buy It Again
         </>
       )}
@@ -240,9 +244,10 @@ function BuyAgainButton({ item }: { item: OrderItem }) {
 interface OrderCardProps {
   order: Order;
   onCancelRequest: (orderId: string) => void;
+  onBuyAgain: (title: string) => void;
 }
 
-function OrderCard({ order, onCancelRequest }: OrderCardProps) {
+function OrderCard({ order, onCancelRequest, onBuyAgain }: OrderCardProps) {
   const meta = STATUS_META[order.status];
   const canStillCancel =
     order.status === "CONFIRMED" && msUntil(order.canCancelUntil) > 0;
@@ -250,14 +255,14 @@ function OrderCard({ order, onCancelRequest }: OrderCardProps) {
     order.status === "CONFIRMED" && msUntil(order.canCancelUntil) <= 0;
 
   return (
-    <article className="bg-[#1E1E1E] border border-zinc-800 rounded-2xl overflow-hidden">
+    <article className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl overflow-hidden shadow-lg">
       {/* ── Card header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800/70">
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-zinc-500 uppercase tracking-wider">
-            Order ID
+          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+            ORDER ID
           </span>
-          <span className="font-mono text-sm font-semibold text-zinc-100">
+          <span className="font-mono text-sm font-semibold text-zinc-200">
             {order.id}
           </span>
         </div>
@@ -265,7 +270,7 @@ function OrderCard({ order, onCancelRequest }: OrderCardProps) {
           {/* Status badge */}
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border",
+              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border",
               meta.color
             )}
           >
@@ -297,35 +302,34 @@ function OrderCard({ order, onCancelRequest }: OrderCardProps) {
           const author = book?.author ?? "";
 
           return (
-            <li key={idx} className="flex items-center gap-3 px-5 py-4">
-              {/* Cover */}
-              <div className="w-12 shrink-0">
-                <BookCover
-                  src={coverImage}
-                  title={item.title}
-                  author={author}
-                  className="w-full h-full object-cover"
-                  aspectRatio="aspect-[3/4]"
-                />
-              </div>
+            <li key={idx} className="flex items-center justify-between gap-4 px-5 py-4">
+              <div className="flex items-center space-x-4">
+                {/* Cover */}
+                <div className="w-14 h-20 flex-shrink-0">
+                  <BookCover
+                    src={coverImage}
+                    title={item.title}
+                    author={author}
+                    className="w-full h-full object-cover rounded border border-zinc-800"
+                    aspectRatio="aspect-[7/10]"
+                  />
+                </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-zinc-100 line-clamp-1">
-                  {item.title}
-                </p>
-                {author && (
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    by {author}
+                {/* Info */}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-zinc-100 line-clamp-1">
+                    {item.title}
                   </p>
-                )}
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {item.selectedFormat} · Qty {item.quantity} ·{" "}
-                  {formatPrice(item.priceAtAdd * item.quantity)}
-                </p>
-                {/* Buy It Again */}
-                <div className="mt-2">
-                  <BuyAgainButton item={item} />
+                  {author && (
+                    <p className="text-xs text-zinc-400 mt-0.5">by {author}</p>
+                  )}
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    {item.selectedFormat} · Qty {item.quantity} ·{" "}
+                    {formatPrice(item.priceAtAdd * item.quantity)}
+                  </p>
+                  <div className="mt-2">
+                    <BuyAgainButton item={item} onAdded={onBuyAgain} />
+                  </div>
                 </div>
               </div>
             </li>
@@ -334,10 +338,10 @@ function OrderCard({ order, onCancelRequest }: OrderCardProps) {
       </ul>
 
       {/* ── Card footer ── */}
-      <div className="px-5 py-3.5 border-t border-zinc-800 bg-zinc-800/30 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="px-5 py-3.5 border-t border-zinc-800/70 bg-zinc-800/30 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="flex items-center gap-1">
-            <Package className="w-3.5 h-3.5" />
+            <Calendar className="w-3.5 h-3.5" />
             {fmtDate(order.createdAt)}
           </span>
           <span className="flex items-center gap-1">
@@ -349,7 +353,7 @@ function OrderCard({ order, onCancelRequest }: OrderCardProps) {
             {order.address.city}, {order.address.state}
           </span>
         </div>
-        <span className="font-semibold text-zinc-200 text-sm">
+        <span className="text-base font-bold text-zinc-100">
           {formatPrice(order.totalAmount)}
         </span>
       </div>
@@ -364,12 +368,24 @@ export default function OrdersClient() {
   const { updateGiftPoints } = useUserStore();
 
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({
+    show: false,
+    message: "",
+  });
+
+  const dismissToast = useCallback(
+    () => setToast((t) => ({ ...t, show: false })),
+    []
+  );
+
+  const handleBuyAgain = useCallback((title: string) => {
+    setToast({ show: true, message: `"${title}" added back to cart` });
+  }, []);
 
   const targetOrder = cancelTarget
     ? orders.find((o) => o.id === cancelTarget)
     : null;
 
-  // Gift points to refund = discount amount if payment method is "Gift Points"
   const giftPointsToRefund = targetOrder
     ? targetOrder.paymentMethod === "Gift Points"
       ? targetOrder.discount
@@ -391,62 +407,62 @@ export default function OrdersClient() {
   );
 
   return (
-    <main className="flex-1 px-4 md:px-6 lg:px-8 py-6 max-w-4xl mx-auto w-full">
-      {/* ── Page heading ── */}
-      <div className="flex items-center gap-2 mb-6">
-        <Package className="w-5 h-5 text-yellow-400" />
-        <h1 className="text-xl font-bold text-zinc-100">My Orders</h1>
-        <span className="ml-auto text-sm text-zinc-400">
-          {orders.length} order{orders.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      {/* ── Empty state ── */}
-      {orders.length === 0 && (
-        <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
-          <Package className="w-16 h-16 text-zinc-600 mb-4" />
-          <h2 className="text-lg font-bold text-zinc-100 mb-1">
-            No orders yet
-          </h2>
-          <p className="text-zinc-400 text-sm mb-6">
-            Your order history will appear here once you make a purchase.
-          </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 transition-colors"
-          >
-            Browse Books
-            <ChevronRight className="w-4 h-4" />
-          </Link>
+    <div className="min-h-screen bg-[#121212] text-zinc-100">
+      <main className="px-4 md:px-6 lg:px-8 py-10 max-w-4xl mx-auto w-full">
+        {/* ── Page heading ── */}
+        <div className="flex items-center justify-between pb-6 mb-6 border-b border-zinc-800">
+          <div className="flex items-center space-x-3">
+            <Package className="w-7 h-7 text-amber-400" />
+            <h1 className="text-2xl font-bold tracking-tight">My Orders</h1>
+          </div>
+          <span className="text-sm text-zinc-400 font-medium">
+            {orders.length} {orders.length === 1 ? "order" : "orders"}
+          </span>
         </div>
-      )}
 
-      {/* ── Orders list ── */}
-      {sorted.length > 0 && (
-        <div className="space-y-4">
-          {sorted.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onCancelRequest={setCancelTarget}
-            />
-          ))}
-        </div>
-      )}
+        {/* ── Empty state ── */}
+        {orders.length === 0 && (
+          <div className="text-center py-16 bg-zinc-900/50 rounded-xl border border-zinc-800">
+            <Package className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
+            <p className="text-zinc-400 mb-4">You haven&apos;t placed any orders yet.</p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-zinc-950 font-semibold hover:bg-amber-400 transition-colors"
+            >
+              Start Browsing
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
 
-      {/* ── Continue shopping prompt ── */}
-      {sorted.length > 0 && (
-        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-zinc-400">
-          <RefreshCcw className="w-4 h-4" />
-          Looking for something new?{" "}
-          <Link
-            href="/"
-            className="text-yellow-400 hover:text-yellow-300 underline underline-offset-2 transition-colors"
-          >
-            Continue Shopping
-          </Link>
-        </div>
-      )}
+        {/* ── Orders list ── */}
+        {sorted.length > 0 && (
+          <div className="space-y-4">
+            {sorted.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onCancelRequest={setCancelTarget}
+                onBuyAgain={handleBuyAgain}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ── Continue shopping prompt ── */}
+        {sorted.length > 0 && (
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-zinc-400">
+            <RefreshCcw className="w-4 h-4" />
+            Looking for something new?{" "}
+            <Link
+              href="/"
+              className="text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        )}
+      </main>
 
       {/* ── Cancel confirmation modal ── */}
       {cancelTarget && targetOrder && (
@@ -458,6 +474,9 @@ export default function OrdersClient() {
           onCancel={() => setCancelTarget(null)}
         />
       )}
-    </main>
+
+      {/* ── Toast notification ── */}
+      <Toast message={toast.message} show={toast.show} onClose={dismissToast} />
+    </div>
   );
 }
