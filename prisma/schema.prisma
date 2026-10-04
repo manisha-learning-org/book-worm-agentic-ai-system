@@ -1,0 +1,125 @@
+// ─────────────────────────────────────────────────────────────
+//  Book Worm – Prisma Schema  (SQLite / dev)
+//  Swap datasource to postgresql for production.
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Models ─────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  /// "GUEST" | "REGISTERED" | "ADMIN"
+  role              String    @default("REGISTERED")
+  giftPointsBalance Int       @default(500)
+  createdAt         DateTime  @default(now())
+  addresses         Address[]
+  orders            Order[]
+  reviews           Review[]
+}
+
+model Address {
+  id       String  @id @default(cuid())
+  label    String
+  fullName String
+  phone    String
+  line1    String
+  line2    String?
+  city     String
+  state    String
+  pincode  String
+  country  String  @default("India")
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders   Order[]
+}
+
+model Book {
+  id                    String      @id @default(cuid())
+  title                 String
+  author                String
+  authorBio             String
+  authorImage           String      @default("")
+  publisher             String
+  /// "Paperback" | "Hardcover" | "eBook"
+  format                String      @default("Paperback")
+  /// "Self-help" | "Fiction" | "Romance" | "Mystery" | "Science Fiction" | "Biography" | "History" | "Children" | "Fantasy" | "Thriller" | "New Launch"
+  category              String
+  price                 Int
+  originalPrice         Int?
+  rating                Float       @default(0)
+  reviewCount           Int         @default(0)
+  copiesSold            Int         @default(0)
+  coverImage            String      @default("")
+  tentativeDeliveryDays String      @default("3-5 days")
+  isBestseller          Boolean     @default(false)
+  isNewLaunch           Boolean     @default(false)
+  description           String
+  pages                 Int?
+  language              String      @default("English")
+  isbn                  String?     @unique
+  publishedDate         String?
+  createdAt             DateTime    @default(now())
+  reviews               Review[]
+  orderItems            OrderItem[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookId    String
+  userId    String
+  userName  String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  userId         String
+  addressId      String
+  subtotal       Int
+  tax            Int
+  discount       Int         @default(0)
+  deliveryCharge Int         @default(0)
+  totalAmount    Int
+  /// "CONFIRMED" | "CANCELLED" | "DELIVERED"
+  status         String      @default("CONFIRMED")
+  paymentMethod  String
+  createdAt      DateTime    @default(now())
+  canCancelUntil DateTime
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address        Address     @relation(fields: [addressId], references: [id])
+  items          OrderItem[]
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  bookId         String
+  quantity       Int
+  /// "Paperback" | "Hardcover" | "eBook"
+  selectedFormat String
+  priceAtAdd     Int
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  book           Book    @relation(fields: [bookId], references: [id])
+}
+
+model Coupon {
+  id             String @id @default(cuid())
+  code           String @unique
+  discountAmount Int
+  minOrderValue  Int
+  description    String @default("")
+}
