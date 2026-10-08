@@ -13,7 +13,8 @@ function LogoutContent() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    // Perform logout when navigating to logout page
+    // Call the server to clear the session cookie, then clear local state
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     logout();
   }, [logout]);
 

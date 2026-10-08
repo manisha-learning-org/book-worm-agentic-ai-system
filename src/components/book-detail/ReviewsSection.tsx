@@ -36,7 +36,7 @@ export function ReviewsSection({ initialReviews, bookId }: ReviewsSectionProps) 
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newRating === 0) {
       setRatingError(true);
@@ -44,7 +44,8 @@ export function ReviewsSection({ initialReviews, bookId }: ReviewsSectionProps) 
     }
     setRatingError(false);
 
-    const review: Review = {
+    // Optimistic local update
+    const optimistic: Review = {
       id: `rev-local-${Date.now()}`,
       bookId,
       userId: "guest",
@@ -53,13 +54,26 @@ export function ReviewsSection({ initialReviews, bookId }: ReviewsSectionProps) 
       comment: newComment.trim(),
       createdAt: new Date(),
     };
-
-    setReviews((r) => [review, ...r]);
+    setReviews((r) => [optimistic, ...r]);
     setNewRating(0);
     setNewComment("");
     setNewName("");
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
+
+    // Persist to DB (fire-and-forget; optimistic UI already updated)
+    try {
+      await fetch(`/api/books/${bookId}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: newRating,
+          comment: optimistic.comment,
+        }),
+      });
+    } catch {
+      // Non-fatal — review is visible locally regardless
+    }
   };
 
   return (

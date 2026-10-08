@@ -20,7 +20,7 @@ import {
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
 import { useOrdersStore } from "@/store/orders";
-import { bookById, validateCoupon } from "@/lib/mock-data";
+import { bookById } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { BookFormat, Order, Address } from "@/lib/types";
@@ -275,25 +275,30 @@ export default function CheckoutClient() {
     return valid;
   };
 
-  // ── Coupon apply ──────────────────────────────────────────────
-  const handleApplyCoupon = () => {
+  // ── Coupon apply – calls real API ─────────────────────────────
+  const handleApplyCoupon = async () => {
     setCouponError("");
     setCouponSuccess("");
     if (!couponInput.trim()) {
       setCouponError("Please enter a coupon code");
       return;
     }
-    const result = validateCoupon(couponInput.trim(), subtotal);
-    if (!result) {
-      setCouponError(
-        subtotal < 1
-          ? "Add items to cart first"
-          : "Invalid coupon or order total too low"
-      );
-      removeCoupon();
-    } else {
-      applyCoupon(result);
-      setCouponSuccess(result.description ?? `₹${result.discountAmount} discount applied!`);
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput.trim(), subtotal }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCouponError(data.error ?? "Invalid coupon or order total too low");
+        removeCoupon();
+      } else {
+        applyCoupon(data.coupon);
+        setCouponSuccess(data.coupon.description ?? `₹${data.coupon.discountAmount} discount applied!`);
+      }
+    } catch {
+      setCouponError("Network error – please try again.");
     }
   };
 
@@ -341,56 +346,8 @@ export default function CheckoutClient() {
   };
 
   // ── Called by PaymentModal on success ─────────────────────────
-  const handlePaymentSuccess = (method: string) => {
-    const now = new Date();
-    const cancelUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-    const deliveryAddress: Address = {
-      id: crypto.randomUUID(),
-      label: "Delivery",
-      fullName: `${form.firstName} ${form.lastName}`.trim(),
-      phone: form.phone,
-      line1: form.addressLine1,
-      line2: form.addressLine2 || undefined,
-      city: form.city,
-      state: form.state,
-      pincode: form.pincode,
-      country: form.country,
-    };
-
-    const orderId = `order-${now.getTime()}`;
-
-    const newOrder: Order = {
-      id: orderId,
-      userId: currentUser?.id ?? "guest",
-      items: items.map((item) => {
-        const book = bookById(item.bookId);
-        return {
-          ...item,
-          title: book?.title ?? "Unknown Book",
-          coverImage: book?.coverImage ?? "",
-        };
-      }),
-      address: deliveryAddress,
-      subtotal,
-      tax,
-      discount: couponDiscount + giftDiscount,
-      deliveryCharge: delivery,
-      totalAmount: total,
-      status: "CONFIRMED",
-      paymentMethod: method as import("@/lib/types").PaymentMethod,
-      createdAt: now,
-      canCancelUntil: cancelUntil,
-    };
-
-    addOrder(newOrder);
-
-    // Deduct gift points if applied
-    if (giftDiscount > 0) {
-      updateGiftPoints(-giftDiscount);
-    }
-
-    // Snapshot purchased items for the success modal before clearing the cart
+  const handlePaymentSuccess = async (method: string) => {
+    // Build snapshot for the success modal before clearing cart
     const snapshot = items.map((item) => {
       const book = bookById(item.bookId);
       return {
@@ -403,6 +360,82 @@ export default function CheckoutClient() {
         coverImage: book?.coverImage ?? "",
       };
     });
+
+    const deliveryAddress = {
+      label: "Delivery",
+      fullName: `${form.firstName} ${form.lastName}`.trim(),
+      phone: form.phone,
+      line1: form.addressLine1,
+      line2: form.addressLine2 || undefined,
+      city: form.city,
+      state: form.state,
+      pincode: form.pincode,
+      country: form.country,
+    };
+
+    // ── Persist to DB via API ──────────────────────────────────
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            bookId: i.bookId,
+            quantity: i.quantity,
+            selectedFormat: i.selectedFormat,
+            priceAtAdd: i.priceAtAdd,
+          })),
+          address: deliveryAddress,
+          paymentMethod: method,
+          couponCode: coupon?.code ?? null,
+          useGiftPoints: giftDiscount > 0,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.order) {
+        // Also keep Zustand in sync so the Orders page shows immediately
+        const now = new Date();
+        const cancelUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+        const localOrder: Order = {
+          id: data.order.id,
+          userId: currentUser?.id ?? "guest",
+          items: items.map((item) => {
+            const book = bookById(item.bookId);
+            return { ...item, title: book?.title ?? "Unknown Book", coverImage: book?.coverImage ?? "" };
+          }),
+          address: {
+            id: data.order.addressId ?? crypto.randomUUID(),
+            label: deliveryAddress.label,
+            fullName: deliveryAddress.fullName,
+            phone: deliveryAddress.phone,
+            line1: deliveryAddress.line1,
+            line2: deliveryAddress.line2,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+            pincode: deliveryAddress.pincode,
+            country: deliveryAddress.country,
+          },
+          subtotal,
+          tax,
+          discount: couponDiscount + giftDiscount,
+          deliveryCharge: delivery,
+          totalAmount: total,
+          status: "CONFIRMED",
+          paymentMethod: method as import("@/lib/types").PaymentMethod,
+          createdAt: now,
+          canCancelUntil: cancelUntil,
+        };
+        addOrder(localOrder);
+      }
+    } catch (err) {
+      // Non-fatal: order still shows locally via Zustand
+      console.error("Failed to persist order to DB:", err);
+    }
+
+    // Deduct gift points locally if applied
+    if (giftDiscount > 0) {
+      updateGiftPoints(-giftDiscount);
+    }
 
     clearCart();
     setShowPaymentModal(false);

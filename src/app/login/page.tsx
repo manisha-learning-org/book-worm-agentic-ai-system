@@ -3,10 +3,9 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, LogIn, ArrowRight, UserPlus, CheckCircle2 } from "lucide-react";
+import { LogIn, ArrowRight, UserPlus, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
 import { useUserStore } from "@/store/user";
-import { mockUser } from "@/lib/mock-data";
 import type { User } from "@/lib/types";
 
 function LoginForm() {
@@ -14,15 +13,16 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  const { isAuthenticated, currentUser, login, logout } = useUserStore();
+  const { isAuthenticated, currentUser, login } = useUserStore();
 
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -31,36 +31,104 @@ function LoginForm() {
         setError("Please fill in all fields.");
         return;
       }
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        name: name.trim(),
-        email: email.trim(),
-        role: "REGISTERED",
-        savedAddresses: [],
-        giftPointsBalance: 500,
-        createdAt: new Date(),
-      };
-      login(newUser);
-      router.push(redirectTo);
+      setLoading(true);
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Registration failed");
+          return;
+        }
+        // Map DB user shape → frontend User type
+        const dbUser = data.user;
+        const user: User = {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          role: dbUser.role,
+          savedAddresses: dbUser.addresses ?? [],
+          giftPointsBalance: dbUser.giftPointsBalance,
+          createdAt: new Date(dbUser.createdAt),
+        };
+        login(user);
+        router.push(redirectTo);
+      } catch {
+        setError("Network error – please try again.");
+      } finally {
+        setLoading(false);
+      }
     } else {
       if (!email.trim() || !password.trim()) {
         setError("Please enter both email and password.");
         return;
       }
-      // Log in with existing mock user or entered credentials
-      const userToLogin: User = {
-        ...mockUser,
-        name: email.split("@")[0] || mockUser.name,
-        email: email.trim(),
-      };
-      login(userToLogin);
-      router.push(redirectTo);
+      setLoading(true);
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Login failed");
+          return;
+        }
+        const dbUser = data.user;
+        const user: User = {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          role: dbUser.role,
+          savedAddresses: dbUser.addresses ?? [],
+          giftPointsBalance: dbUser.giftPointsBalance,
+          createdAt: new Date(dbUser.createdAt),
+        };
+        login(user);
+        router.push(redirectTo);
+      } catch {
+        setError("Network error – please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleQuickDemoLogin = () => {
-    login(mockUser);
-    router.push(redirectTo);
+  const handleQuickDemoLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "priya.sharma@example.com", password: "demo" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const dbUser = data.user;
+        const user: User = {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          role: dbUser.role,
+          savedAddresses: dbUser.addresses ?? [],
+          giftPointsBalance: dbUser.giftPointsBalance,
+          createdAt: new Date(dbUser.createdAt),
+        };
+        login(user);
+        router.push(redirectTo);
+      } else {
+        setError(data.error ?? "Demo login failed");
+      }
+    } catch {
+      setError("Network error – please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (isAuthenticated && currentUser) {
@@ -162,10 +230,11 @@ function LoginForm() {
 
         <button
           type="submit"
-          className="w-full py-2.5 px-4 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-zinc-950 font-semibold text-sm transition-colors shadow-md mt-2 flex items-center justify-center gap-2"
+          disabled={loading}
+          className="w-full py-2.5 px-4 rounded-lg bg-yellow-400 hover:bg-yellow-300 disabled:opacity-60 disabled:cursor-not-allowed text-zinc-950 font-semibold text-sm transition-colors shadow-md mt-2 flex items-center justify-center gap-2"
         >
-          {isRegister ? "Sign Up" : "Sign In"}
-          <ArrowRight className="w-4 h-4" />
+          {loading ? "Please wait…" : isRegister ? "Sign Up" : "Sign In"}
+          {!loading && <ArrowRight className="w-4 h-4" />}
         </button>
       </form>
 
@@ -181,9 +250,10 @@ function LoginForm() {
       <button
         type="button"
         onClick={handleQuickDemoLogin}
-        className="w-full py-2.5 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-sm font-medium transition-colors mb-4"
+        disabled={loading}
+        className="w-full py-2.5 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-60 disabled:cursor-not-allowed border border-zinc-700 text-zinc-200 text-sm font-medium transition-colors mb-4"
       >
-        Quick Sign In as Demo User ({mockUser.name.split(" ")[0]})
+        {loading ? "Signing in…" : "Quick Sign In as Demo User (Priya)"}
       </button>
 
       <div className="text-center text-xs text-zinc-400">

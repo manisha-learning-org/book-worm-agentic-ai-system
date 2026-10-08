@@ -15,16 +15,17 @@ datasource db {
 // ── Models ─────────────────────────────────────────────────────
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                String         @id @default(cuid())
+  email             String         @unique
   name              String
   /// "GUEST" | "REGISTERED" | "ADMIN"
-  role              String    @default("REGISTERED")
-  giftPointsBalance Int       @default(500)
-  createdAt         DateTime  @default(now())
+  role              String         @default("REGISTERED")
+  giftPointsBalance Int            @default(500)
+  createdAt         DateTime       @default(now())
   addresses         Address[]
   orders            Order[]
   reviews           Review[]
+  wishlistItems     WishlistItem[]
 }
 
 model Address {
@@ -44,33 +45,34 @@ model Address {
 }
 
 model Book {
-  id                    String      @id @default(cuid())
+  id                    String         @id @default(cuid())
   title                 String
   author                String
   authorBio             String
-  authorImage           String      @default("")
+  authorImage           String         @default("")
   publisher             String
   /// "Paperback" | "Hardcover" | "eBook"
-  format                String      @default("Paperback")
+  format                String         @default("Paperback")
   /// "Self-help" | "Fiction" | "Romance" | "Mystery" | "Science Fiction" | "Biography" | "History" | "Children" | "Fantasy" | "Thriller" | "New Launch"
   category              String
   price                 Int
   originalPrice         Int?
-  rating                Float       @default(0)
-  reviewCount           Int         @default(0)
-  copiesSold            Int         @default(0)
-  coverImage            String      @default("")
-  tentativeDeliveryDays String      @default("3-5 days")
-  isBestseller          Boolean     @default(false)
-  isNewLaunch           Boolean     @default(false)
+  rating                Float          @default(0)
+  reviewCount           Int            @default(0)
+  copiesSold            Int            @default(0)
+  coverImage            String         @default("")
+  tentativeDeliveryDays String         @default("3-5 days")
+  isBestseller          Boolean        @default(false)
+  isNewLaunch           Boolean        @default(false)
   description           String
   pages                 Int?
-  language              String      @default("English")
-  isbn                  String?     @unique
+  language              String         @default("English")
+  isbn                  String?        @unique
   publishedDate         String?
-  createdAt             DateTime    @default(now())
+  createdAt             DateTime       @default(now())
   reviews               Review[]
   orderItems            OrderItem[]
+  wishlistItems         WishlistItem[]
 }
 
 model Review {
@@ -122,4 +124,15 @@ model Coupon {
   discountAmount Int
   minOrderValue  Int
   description    String @default("")
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  bookId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
 }

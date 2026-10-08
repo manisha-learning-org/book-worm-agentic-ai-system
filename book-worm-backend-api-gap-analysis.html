@@ -1,0 +1,268 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Book Worm – Backend API Gap Analysis</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    background: #ffffff;
+    color: #1f2328;
+    padding: 32px 16px 48px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #57606a; margin-bottom: 28px; }
+  h2 { font-size: 15px; font-weight: 700; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  h3 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: #57606a; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* status badges */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .done   { background: #d1fae5; color: #065f46; }
+  .partial{ background: #fef3c7; color: #92400e; }
+  .gap    { background: #fee2e2; color: #991b1b; }
+  .infra  { background: #ede9fe; color: #4c1d95; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+  thead th {
+    background: #f7f8fa;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #e5e7eb;
+    font-size: 12px;
+    color: #57606a;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  tbody tr { border-bottom: 1px solid #e5e7eb; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 8px 10px; vertical-align: top; }
+  tbody tr:hover { background: #f7f8fa; }
+
+  .method {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: nowrap;
+  }
+  .get  { background: #dbeafe; color: #1e40af; }
+  .post { background: #d1fae5; color: #065f46; }
+  .put  { background: #fef3c7; color: #92400e; }
+  .del  { background: #fee2e2; color: #991b1b; }
+  .patch{ background: #ede9fe; color: #4c1d95; }
+
+  code { font-family: monospace; font-size: 12px; background: #f7f8fa; padding: 1px 5px; border-radius: 4px; color: #3b82d4; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .summary-card .num { font-size: 28px; font-weight: 700; }
+  .summary-card .lbl { font-size: 12px; color: #57606a; margin-top: 2px; }
+  .num-done   { color: #065f46; }
+  .num-partial{ color: #92400e; }
+  .num-gap    { color: #991b1b; }
+  .num-infra  { color: #4c1d95; }
+
+  .note {
+    background: #fff7ed;
+    border-left: 3px solid #f59e0b;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    margin: 12px 0;
+    color: #1f2328;
+  }
+  .note strong { color: #92400e; }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    font-size: 12px;
+    color: #57606a;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Book Worm — Backend API Gap Analysis</h1>
+  <p class="subtitle">Wireframe requirements vs. current Next.js codebase  ·  Focus: missing <code>src/app/api/</code> route handlers</p>
+
+  
+  <div class="summary-grid">
+    <div class="summary-card"><div class="num num-done">✓ 0</div><div class="lbl">API Routes Exist</div></div>
+    <div class="summary-card"><div class="num num-gap">17</div><div class="lbl">API Routes Missing</div></div>
+    <div class="summary-card"><div class="num num-partial">5</div><div class="lbl">Features (UI only)</div></div>
+    <div class="summary-card"><div class="num num-infra">2</div><div class="lbl">Infra Gaps</div></div>
+  </div>
+
+  <div class="note">
+    <strong>Key finding:</strong> The entire <code>src/app/api/</code> directory does not exist. Every data operation (books, cart, orders, wishlist, users, reviews, coupons) is currently served from in-memory mock data in <code>src/lib/mock-data.ts</code> and Zustand stores backed by <code>localStorage</code>. The Prisma schema + SQLite DB + seed script are present but <strong>no HTTP API layer connects them to the frontend</strong>.
+  </div>
+
+  
+  <h2>1. What's Already Built (Frontend / UI)</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Page / Component</th><th>Data Source</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Catalogue / Landing page with sections (Recommended, Bestsellers, New Launches)</td><td><code>/</code> → <code>page.tsx</code></td><td>mock-data.ts (in-memory)</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Category sidebar + search / filter / sort</td><td><code>Sidebar.tsx</code>, URL params</td><td>mock-data.ts</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Book detail page (cover, author, reviews, related reads)</td><td><code>/books/[id]</code></td><td>mock-data.ts</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Add to Cart / Add to Wishlist buttons</td><td><code>AddToCartButton.tsx</code>, <code>WishlistButton.tsx</code></td><td>Zustand (localStorage)</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Checkout — address form + payment modal</td><td><code>/checkout</code> → <code>CheckoutClient.tsx</code>, <code>PaymentModal.tsx</code></td><td>Zustand</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Order confirmation screen</td><td><code>/order-confirmation/[orderId]</code></td><td>Zustand orders store</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>My Orders page (with Buy Again, Cancel)</td><td><code>/orders</code> → <code>OrdersClient.tsx</code></td><td>Zustand (mock seed)</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Wishlist page</td><td><code>/wishlist</code></td><td>Zustand (localStorage)</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>My Writers page</td><td><code>/writers</code></td><td>mock-data.ts</td><td><span class="badge done">UI Done</span></td></tr>
+      <tr><td>Login / Register page (mock auth)</td><td><code>/login</code></td><td>Hard-coded mock user</td><td><span class="badge partial">Mock only</span></td></tr>
+      <tr><td>Profile page</td><td><code>/profile</code></td><td>Zustand user store</td><td><span class="badge partial">Mock only</span></td></tr>
+      <tr><td>Coupon code field in checkout</td><td><code>CheckoutClient.tsx</code></td><td>Hard-coded mockCoupons array</td><td><span class="badge partial">Mock only</span></td></tr>
+      <tr><td>Prisma schema (User, Book, Order, Review, Coupon, Address)</td><td><code>prisma/schema.prisma</code></td><td>SQLite file</td><td><span class="badge partial">Schema only</span></td></tr>
+      <tr><td>Prisma seed script</td><td><code>prisma/seed.ts</code></td><td>Reads from mock-data.ts</td><td><span class="badge partial">Works standalone</span></td></tr>
+    </tbody>
+  </table>
+
+  
+  <h2>2. Missing Backend API Routes (all of <code>src/app/api/</code>)</h2>
+
+  <h3>2.1 Books / Catalogue</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books</code></td><td>List all books; supports <code>?q=</code>, <code>category=</code>, <code>format=</code>, <code>lang=</code>, <code>price=</code>, <code>sort=</code></td><td>Catalogue</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/[id]</code></td><td>Single book detail</td><td>Book Detail</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/[id]/related</code></td><td>Related reads (same category, excl. current)</td><td>Book Detail – right rail</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/recommended</code></td><td>Recommended-for-you books</td><td>Landing page</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/bestsellers</code></td><td>Bestsellers this month</td><td>Landing page</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/new-launches</code></td><td>New launches</td><td>Landing page</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Reviews</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/books/[id]/reviews</code></td><td>Fetch reviews for a book</td><td>Book Detail – Reviews section</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/books/[id]/reviews</code></td><td>Submit a new review (rating + comment)</td><td>Book Detail – Submit review</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.3 Authentication</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/auth/register</code></td><td>Create user account, return session token</td><td>Login/Register page</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/auth/login</code></td><td>Authenticate with email+password</td><td>Login page</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/auth/logout</code></td><td>Invalidate session</td><td>Logout</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.4 User / Profile</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/users/me</code></td><td>Current user profile + gift points balance</td><td>Profile page</td></tr>
+      <tr><td><span class="method put">PUT</span></td><td><code>/api/users/me</code></td><td>Update profile (name, email)</td><td>Profile page</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/users/me/addresses</code></td><td>Add a saved delivery address</td><td>Checkout – Use Saved Address</td></tr>
+      <tr><td><span class="method del">DELETE</span></td><td><code>/api/users/me/addresses/[id]</code></td><td>Remove a saved address</td><td>Profile / Checkout</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.5 Orders</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/orders</code></td><td>Place a new order (cart snapshot, address, payment method, coupon)</td><td>Checkout → Order Confirmation</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/orders</code></td><td>List orders for current user (order history)</td><td>My Orders page</td></tr>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/orders/[id]</code></td><td>Single order detail (for confirmation page)</td><td>Order Confirmation</td></tr>
+      <tr><td><span class="method patch">PATCH</span></td><td><code>/api/orders/[id]/cancel</code></td><td>Cancel an order (within 48 h window)</td><td>My Orders – Cancel button</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.6 Coupons</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/coupons/validate</code></td><td>Validate coupon code + return discount amount</td><td>Checkout – Apply Coupon</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.7 Wishlist (optional server-side persistence)</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Wireframe Slide</th></tr></thead>
+    <tbody>
+      <tr><td><span class="method get">GET</span></td><td><code>/api/wishlist</code></td><td>Fetch server-persisted wishlist for logged-in user</td><td>My Wishlist page</td></tr>
+      <tr><td><span class="method post">POST</span></td><td><code>/api/wishlist</code></td><td>Add book to wishlist</td><td>Book Detail – Add to Wishlist</td></tr>
+      <tr><td><span class="method del">DELETE</span></td><td><code>/api/wishlist/[bookId]</code></td><td>Remove book from wishlist</td><td>My Wishlist page</td></tr>
+    </tbody>
+  </table>
+
+  
+  <h2>3. Infrastructure Gaps</h2>
+  <table>
+    <thead><tr><th>Gap</th><th>Current State</th><th>What's Needed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Authentication / Session</strong></td>
+        <td>Mock user hard-coded into Zustand; no server-side session token</td>
+        <td>JWT or cookie-based session (e.g. <code>next-auth</code> or custom middleware) so API routes can identify the caller</td>
+      </tr>
+      <tr>
+        <td><strong>Database wiring</strong></td>
+        <td>Prisma schema + SQLite exist; seed populates data; but <em>no route ever calls <code>prisma.*</code></em></td>
+        <td>A shared <code>src/lib/prisma.ts</code> singleton + <code>import prisma</code> inside each route handler to read/write the database</td>
+      </tr>
+    </tbody>
+  </table>
+
+  
+  <h2>4. Recommended Build Order</h2>
+  <table>
+    <thead><tr><th>Priority</th><th>What to Build</th><th>Why First</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Prisma client singleton (<code>src/lib/prisma.ts</code>)</td><td>All routes depend on it</td></tr>
+      <tr><td>2</td><td><code>GET /api/books</code> + <code>GET /api/books/[id]</code></td><td>Unblocks catalogue → page data flows from DB, not mock</td></tr>
+      <tr><td>3</td><td><code>POST /api/auth/register</code> + <code>POST /api/auth/login</code></td><td>Real auth needed before orders/reviews</td></tr>
+      <tr><td>4</td><td><code>POST /api/orders</code> + <code>GET /api/orders</code> + <code>PATCH /api/orders/[id]/cancel</code></td><td>Core purchase flow; matches Payment &amp; Purchase wireframe slides</td></tr>
+      <tr><td>5</td><td><code>GET/POST /api/books/[id]/reviews</code></td><td>Review submission (Book Detail page)</td></tr>
+      <tr><td>6</td><td><code>POST /api/coupons/validate</code></td><td>Coupon redemption at checkout</td></tr>
+      <tr><td>7</td><td>Address CRUD + <code>GET /api/users/me</code></td><td>Profile page and saved-address reuse in checkout</td></tr>
+      <tr><td>8</td><td>Wishlist API (persist server-side)</td><td>Currently localStorage only; nice-to-have persistence</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>Quick start:</strong> Create <code>src/lib/prisma.ts</code> (Prisma client singleton), then add <code>src/app/api/books/route.ts</code> calling <code>prisma.book.findMany()</code> with the same filter params the UI already sends. That single file makes the catalogue database-driven with zero UI changes.
+  </div>
+
+  <footer>Made with IBM Bob</footer>
+</div>
+</body>
+</html>
