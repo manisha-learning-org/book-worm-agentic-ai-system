@@ -24,6 +24,7 @@ import {
   MapPin,
   CreditCard,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { useOrdersStore } from "@/store/orders";
 import { useUserStore } from "@/store/user";
@@ -364,10 +365,11 @@ function OrderCard({ order, onCancelRequest, onBuyAgain }: OrderCardProps) {
 // ── Main page component ───────────────────────────────────────────────────────
 
 export default function OrdersClient() {
-  const { orders, updateOrderStatus } = useOrdersStore();
+  const { orders, updateOrderStatus, clearOrders } = useOrdersStore();
   const { updateGiftPoints } = useUserStore();
 
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({
     show: false,
     message: "",
@@ -401,6 +403,11 @@ export default function OrdersClient() {
     setCancelTarget(null);
   }, [cancelTarget, giftPointsToRefund, updateOrderStatus, updateGiftPoints]);
 
+  const handleClearConfirm = useCallback(() => {
+    clearOrders();
+    setShowClearConfirm(false);
+  }, [clearOrders]);
+
   // Sort: most recent first
   const sorted = [...orders].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -415,9 +422,20 @@ export default function OrdersClient() {
             <Package className="w-7 h-7 text-amber-400" />
             <h1 className="text-2xl font-bold tracking-tight">My Orders</h1>
           </div>
-          <span className="text-sm text-zinc-400 font-medium">
-            {orders.length} {orders.length === 1 ? "order" : "orders"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-400 font-medium">
+              {orders.length} {orders.length === 1 ? "order" : "orders"}
+            </span>
+            {orders.length > 0 && (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-950/40 border border-zinc-700 hover:border-rose-700/60 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear History
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Empty state ── */}
@@ -463,6 +481,42 @@ export default function OrdersClient() {
           </div>
         )}
       </main>
+
+      {/* ── Clear history confirmation modal ── */}
+      {showClearConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Clear order history confirmation"
+        >
+          <div className="bg-[#1E1E1E] border border-zinc-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <Trash2 className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-zinc-100 mb-1">Clear order history?</h3>
+                <p className="text-sm text-zinc-400">
+                  All {orders.length} order{orders.length !== 1 ? "s" : ""} will be permanently removed from your history. This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
+              >
+                Keep history
+              </button>
+              <button
+                onClick={handleClearConfirm}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 transition-colors"
+              >
+                Yes, clear all
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Cancel confirmation modal ── */}
       {cancelTarget && targetOrder && (

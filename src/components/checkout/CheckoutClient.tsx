@@ -129,6 +129,8 @@ export default function CheckoutClient() {
   const [useSavedAddress, setUseSavedAddress] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
   const [formTouched, setFormTouched] = useState(false);
+  // Tracks whether the one-time auto-selection of the first saved address has happened
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
   // ── Coupon / gift points ──────────────────────────────────────
   const [couponInput, setCouponInput] = useState("");
@@ -162,6 +164,12 @@ export default function CheckoutClient() {
       coverImage: string;
     }>
   >([]);
+  const [successOrderId, setSuccessOrderId] = useState<string | undefined>(undefined);
+  const [successPaymentMethod, setSuccessPaymentMethod] = useState<string | undefined>(undefined);
+  const [successDeliveryAddress, setSuccessDeliveryAddress] = useState<{
+    fullName: string; phone: string; line1: string; line2?: string;
+    city: string; state: string; pincode: string; country: string;
+  } | undefined>(undefined);
 
   // ── Order summary calculations ───────────────────────────────
   const subtotal = useMemo(
@@ -199,15 +207,16 @@ export default function CheckoutClient() {
     setFormErrors({});
   }, [currentUser?.email]);
 
-  // Pre-fill with the first saved address by default if available
+  // Pre-fill with the first saved address by default if available — runs only once
   useEffect(() => {
-    if (savedAddresses.length > 0 && selectedAddressId === "new" && !useSavedAddress) {
+    if (!hasAutoSelected && savedAddresses.length > 0) {
       const firstAddr = savedAddresses[0];
       setSelectedAddressId(firstAddr.id);
       setUseSavedAddress(true);
       fillFormFromAddress(firstAddr);
+      setHasAutoSelected(true);
     }
-  }, [savedAddresses, selectedAddressId, useSavedAddress, fillFormFromAddress]);
+  }, [hasAutoSelected, savedAddresses, fillFormFromAddress]);
 
   const handleSelectAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
@@ -426,6 +435,7 @@ export default function CheckoutClient() {
           canCancelUntil: cancelUntil,
         };
         addOrder(localOrder);
+        setSuccessOrderId(data.order.id);
       }
     } catch (err) {
       // Non-fatal: order still shows locally via Zustand
@@ -440,6 +450,17 @@ export default function CheckoutClient() {
     clearCart();
     setShowPaymentModal(false);
     setPurchasedItems(snapshot);
+    setSuccessPaymentMethod(method);
+    setSuccessDeliveryAddress({
+      fullName: deliveryAddress.fullName,
+      phone: deliveryAddress.phone,
+      line1: deliveryAddress.line1,
+      line2: deliveryAddress.line2,
+      city: deliveryAddress.city,
+      state: deliveryAddress.state,
+      pincode: deliveryAddress.pincode,
+      country: deliveryAddress.country,
+    });
     setShowSuccessModal(true);
   };
 
@@ -457,7 +478,9 @@ export default function CheckoutClient() {
   };
 
   // ── Empty cart ─────────────────────────────────────────────────
-  if (items.length === 0) {
+  // If the success modal is open the cart has just been cleared — render
+  // the modal overlay instead of the "cart is empty" screen.
+  if (items.length === 0 && !showSuccessModal) {
     return (
       <main className="flex-1 flex items-center justify-center min-h-[60vh] px-4">
         <div className="text-center">
@@ -849,6 +872,10 @@ export default function CheckoutClient() {
       <PurchaseSuccessModal
         isOpen={showSuccessModal}
         items={purchasedItems}
+        deliveryAddress={successDeliveryAddress}
+        orderId={successOrderId}
+        paymentMethod={successPaymentMethod}
+        totalAmount={total}
       />
     </main>
   );

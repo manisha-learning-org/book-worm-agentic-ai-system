@@ -33,6 +33,9 @@ interface OrdersStore {
 
   /** Hard-reset back to the canonical seed data */
   resetOrders: () => void;
+
+  /** Remove all orders, leaving an empty history */
+  clearOrders: () => void;
 }
 
 export const useOrdersStore = create<OrdersStore>()(
@@ -54,6 +57,8 @@ export const useOrdersStore = create<OrdersStore>()(
         })),
 
       resetOrders: () => set({ orders: freshSeed() }),
+
+      clearOrders: () => set({ orders: [] }),
     }),
     {
       // ── Bumping the key name immediately invalidates every
